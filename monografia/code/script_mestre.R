@@ -70,20 +70,18 @@ f_cfb <- function(ano, trimestre) {
     # Expansão para a população real via pesos amostrais (v1028), para
     # agregados do DMP
     macro_trimestre <- base_bruta %>%
+      filter(V2009 >= 14 & V2009 <= 29) %>% # Filtro vital para o TCC
+      group_by(Ano = ano, Trimestre = trimestre, UF) %>% # Agrupamento Estadual
       summarise(
-        Ano = ano,
-        Trimestre = trimestre,
-        # Total de Desempregados
         U_Total = sum(V1028[VD4002 == "Pessoas desocupadas" 
                             & VD4001 == "Pessoas na força de trabalho"],
                       na.rm = TRUE),
-        # Total de Empregados
         E_Total = sum(V1028[VD4002 == "Pessoas ocupadas" 
                             & VD4001 == "Pessoas na força de trabalho"],
                       na.rm = TRUE),
-        # Força de Trabalho Total
         PEA_Total = sum(V1028[VD4001 == "Pessoas na força de trabalho"],
-                        na.rm = TRUE)
+                        na.rm = TRUE),
+        .groups = "drop"
       )
     
     # Filtro da base para indivíduos jovens (14-29 anos) para estimações
@@ -248,7 +246,7 @@ saveRDS(dados_transicao, "../data/base_tcc_pronta_reg.rds")
 cat("Tamanho final do painel validado:", nrow(dados_transicao), "transicoes.")
 
 # Limpeza
-rm(list = setdiff(ls(), c("base_tcc_jovens")))
+rm(list = setdiff(ls(), c("dados_transicao","base_dmp_macro", "dados_caged_trimestral")))
 
 # ==========================================
 # 3. ESTIMAÇÃO DiD
@@ -538,106 +536,123 @@ rm(list = setdiff(ls(), c("base_dmp_macro", "dados_caged_trimestral")))
 
 
 # ==========================================
-# 4. CALIBRAÇÃO DMP
+# 4. ESTIMAÇÃO DA FUNÇÃO DE MATCHING E CALIBRAÇÃO DMP
 # ==========================================
 
-# Juntando as bases
-dados_caged_trimestral <- dados_caged_trimestral %>%
-  group_by(Ano, Trimestre) %>%
-  summarise(M_Admissoes = sum(M_Matches_Admissoes, na.rm = TRUE),
-            S_Desligamentos = sum(Desligamentos_Totais, na.rm = TRUE), .groups = "drop")
+# 4.1 Dicionário para cruzar UF (Extenso) com UF (Sigla)
+dic_uf <- data.frame(
+  UF_Sigla = c("RO","AC","AM","RR","PA","AP","TO","MA","PI","CE","RN","PB","PE","AL","SE","BA","MG","ES","RJ","SP","PR","SC","RS","MS","MT","GO","DF"),
+  UF = c("Rondônia","Acre","Amazonas","Roraima","Pará","Amapá","Tocantins","Maranhão","Piauí","Ceará","Rio Grande do Norte","Paraíba","Pernambuco","Alagoas","Sergipe","Bahia","Minas Gerais","Espírito Santo","Rio de Janeiro","São Paulo","Paraná","Santa Catarina","Rio Grande do Sul","Mato Grosso do Sul","Mato Grosso","Goiás","Distrito Federal")
+)
 
-dados_dmp <- base_dmp_macro %>%
-  inner_join(dados_caged_trimestral, by = c("Ano", "Trimestre")) %>%
-  arrange(Ano, Trimestre)
-
-rm(base_dmp_macro, dados_caged_trimestral)
-
-# Calibrando
-dados_dmp <- dados_dmp %>%
+# 4.2 Construindo o Painel Regional (UF x Trimestre)
+dados_painel_regional <- base_dmp_macro %>%
+  # Trazendo a Sigla para a base da PNAD
+  left_join(dic_uf, by = "UF") %>% 
+  # Cruzando PNAD com CAGED através da Sigla, Ano e Trimestre
+  inner_join(dados_caged_trimestral, by = c("Ano", "Trimestre", "UF_Sigla")) %>%
   mutate(
+    Trimestre_Ano = paste0(Ano, "Q", Trimestre),
+    # Transformação Logarítmica para a Regressão de Cobb-Douglas
+    ln_M = log(M_Matches_Admissoes),
+    ln_U = log(U_Total),
+    ln_E = log(E_Total) # Proxy para escala de Vagas (V) e Ciclo Econômico
+  ) %>%
+  filter(is.finite(ln_M), is.finite(ln_U), is.finite(ln_E))
+
+# 4.3 ESTIMAÇÃO INÉDITA DO ALPHA (Elasticidade do Desemprego)
+cat("\nEstimando a Função de Matching Juvenil via TWFE...\n")
+modelo_matching <- feols(
+  ln_M ~ ln_U + ln_E | Trimestre_Ano + UF_Sigla,
+  data = dados_painel_regional,
+  cluster = ~UF_Sigla
+)
+
+# Exportando a tabela para o seu TCC
+modelsummary(
+  list("Matching Cobb-Douglas (Jovens)" = modelo_matching),
+  estimate = "{estimate}{stars}", statistic = "({std.error})",
+  title = "Tabela 2 - Estimação da Função de Matching Juvenil (2012-2024)",
+  output = "../graphics/Tabela_Matching_TCC.html"
+)
+
+# O pulo do gato: Extraindo o seu Alpha estimado pelo modelo!
+alpha_tcc <- coef(modelo_matching)["ln_U"]
+cat(sprintf("-> O parâmetro Alpha (elasticidade) estimado pelo modelo é: %.3f\n", alpha_tcc))
+
+# 4.4 Agregação Macro Nacional (O Brasil como um todo para o DMP)
+dados_dmp_nacional <- dados_painel_regional %>%
+  group_by(Ano, Trimestre) %>%
+  summarise(
+    U_Total = sum(U_Total, na.rm = TRUE),
+    E_Total = sum(E_Total, na.rm = TRUE),
+    PEA_Total = sum(PEA_Total, na.rm = TRUE),
+    M_Admissoes = sum(M_Matches_Admissoes, na.rm = TRUE),
+    S_Desligamentos = sum(Desligamentos_Totais, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 4.5 Calibração Estrutural com o SEU Alpha
+dados_calibrados <- dados_dmp_nacional %>%
+  mutate(
+    Tempo = Ano + (Trimestre - 1) / 4,
     Periodo = case_when(
       Ano < 2020 ~ "1_Pre-Pandemia",
       Ano %in% c(2020, 2021) ~ "2_Pandemia",
       Ano > 2021 ~ "3_Pos-Pandemia"
     ),
-    
     u = U_Total / PEA_Total,
     f = M_Admissoes / U_Total,
     s = S_Desligamentos / E_Total,
     
-    alpha = 0.73,
+    # Usando o Alpha gerado no passo 4.3
+    alpha_real = alpha_tcc,
     
-    # Proxy para Vagas (V): Invertendo a função de matching M = A * U^alpha * V^(1-alpha)
-    # Como não temos V oficial, assumimos uma Job Finding Rate teórica para derivar a Tightness (theta)
-    # theta = V / U. Sabemos que f = M/U = A * theta^(1-alpha).
-    # Assumindo A normalizado em 1 no período base (2019), extraímos theta.
-    theta_proxy = (f)^(1 / (1 - alpha)),
+    # Inversão da função para achar a eficiência (A) e Tensionamento (theta)
+    theta_proxy = (f)^(1 / (1 - alpha_real)),
     v_proxy = theta_proxy * u,
-    
-    # Eficiência de Matching Dinâmica (A_t): O quanto o mercado se desajustou
-    A_eff = M_Admissoes / ((U_Total^alpha) * ((v_proxy * PEA_Total)^(1 - alpha))),
-    
-    # Desemprego de Estado Estacionário (u*)
+    A_eff = M_Admissoes / ((U_Total^alpha_real) * ((v_proxy * PEA_Total)^(1 - alpha_real))),
     u_star = s / (s + f)
   )
 
-# Teste de Poder de Barganha
-# Simulando o Paradoxo de Shimer: 
-# O que aconteceria com o u* se o salário fosse totalmente rígido (beta = 0.9) 
-# versus perfeitamente flexível (beta = alpha = 0.73, Condição de Hosios)?
-
-# Para simplificar, assumimos que a rigidez (beta alto) amplifica o choque de separação (s)
-# e deprime a criação de vagas (f) em 30% durante a crise.
-dados_simulacao <- dados_dmp %>%
+# 4.6 Paradoxo de Shimer (Simulação de Rigidez)
+dados_simulacao <- dados_calibrados %>%
   mutate(
-    # u* com salários flexíveis (O mercado ajusta via preço, não via quantidade)
+    # Hosios (Salário Flexível = Ajuste no Preço)
     u_star_flexivel = ifelse(Periodo == "2_Pandemia", s / (s + (f * 1.3)), u_star),
-    
-    # u* com salários rígidos (Paradoxo de Shimer: ajuste brutal via destruição de vagas)
+    # Shimer (Salário Rígido = Destruição Massiva de Vagas)
     u_star_rigido = ifelse(Periodo == "2_Pandemia", (s * 1.3) / ((s * 1.3) + (f * 0.7)), u_star)
   )
 
-# Gráfico 1: A Curva de Beveridge Real (U vs V)
-grafico_beveridge <- ggplot(dados_dmp, aes(x = u, y = v_proxy, color = Periodo)) +
+# 4.7 Exportação dos Gráficos Macroeconômicos
+grafico_beveridge <- ggplot(dados_calibrados, aes(x = u, y = v_proxy, color = Periodo)) +
   geom_path(aes(group = 1), color = "gray80", size = 0.5, arrow = arrow(length = unit(0.1, "inches"))) +
   geom_point(size = 4, alpha = 0.8) +
   scale_color_manual(values = c("#27ae60", "#c0392b", "#2980b9")) +
   theme_minimal(base_size = 14) +
-  labs(
-    title = "Curva de Beveridge do Mercado Juvenil (2012-2024)",
-    subtitle = "O Deslocamento Estrutural da Eficiência de Matching (A)",
-    x = "Taxa de Desemprego (u)",
-    y = "Taxa de Vagas (Proxy v)",
-    color = "Fase"
-  )
+  labs(title = "Curva de Beveridge do Mercado Juvenil (2012-2024)",
+       subtitle = "Deslocamento da Eficiência de Matching (A)",
+       x = "Taxa de Desemprego (u)", y = "Taxa de Vagas (Proxy v)", color = "Fase")
 
-# Gráfico 2: Teste de Parâmetros (Rigidez vs Flexibilidade)
 dados_plot_beta <- dados_simulacao %>%
-  select(Ano, Trimestre, u_star, u_star_flexivel, u_star_rigido) %>%
-  mutate(Tempo = Ano + (Trimestre - 1) / 4) %>%
+  select(Tempo, u_star, u_star_flexivel, u_star_rigido) %>%
   pivot_longer(cols = starts_with("u_star"), names_to = "Modelo", values_to = "Desemprego_Equilibrio") %>%
   mutate(Modelo = case_when(
     Modelo == "u_star" ~ "Observado (Baseline)",
-    Modelo == "u_star_flexivel" ~ "Simulado: Salário Flexível (Condição Hosios)",
-    Modelo == "u_star_rigido" ~ "Simulado: Salário Rígido (Paradoxo Shimer)"
+    Modelo == "u_star_flexivel" ~ "Simulado: Salário Flexível (Hosios)",
+    Modelo == "u_star_rigido" ~ "Simulado: Salário Rígido (Shimer)"
   ))
 
 grafico_shimer <- ggplot(dados_plot_beta, aes(x = Tempo, y = Desemprego_Equilibrio, color = Modelo, linetype = Modelo)) +
-  geom_line(size = 1.2) +
+  geom_line(linewidth = 1.2) +
   geom_vline(xintercept = 2020.0, linetype = "dotted", color = "black") +
   scale_color_manual(values = c("black", "#2980b9", "#c0392b")) +
-  scale_linetype_manual(values = c("solid", "dashed", "dashed")) +
   theme_minimal(base_size = 14) +
   theme(legend.position = "bottom", legend.direction = "vertical") +
-  labs(
-    title = "Desemprego de Estado Estacionário (u*) sob Diferentes Poderes de Barganha (\U03B2)",
-    subtitle = "Calibração estrutural baseada no Paradoxo de Shimer",
-    x = "Tempo",
-    y = "Desemprego u* (%)"
-  )
+  labs(title = "Desemprego u* sob Diferentes Poderes de Barganha (\U03B2)",
+       x = "Tempo", y = "Desemprego u* (%)")
 
-# Salvar gráficos com rigor de artigo
 ggsave("../graphics/Curva_Beveridge_Estrutural.png", plot = grafico_beveridge, width = 10, height = 7, dpi = 600)
 ggsave("../graphics/Simulacao_Shimer_Beta.png", plot = grafico_shimer, width = 10, height = 7, dpi = 600)
 
+cat("\nPipeline completamente executado com sucesso!\n")
