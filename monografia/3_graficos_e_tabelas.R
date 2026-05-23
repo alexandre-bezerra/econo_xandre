@@ -1,0 +1,433 @@
+################################################################################
+# Monografia - FRICÇÕES E HETEROGENEIDADE: UMA ANÁLISE ESTRUTURAL E CAUSAL 
+#              DO CHOQUE PANDÊMICO NO MERCADO DE TRABALHO JUVENIL BRASILEIRO 
+#
+# Autor: Alexandre Bezerra dos Santos - Economia - UFPE
+# Orientador: Prof. Dr. Cristiano da Costa da Silva
+# 
+# Etapa: Geração de Gráficos e Tabelas
+# Data de última edição: 22/05/2026
+# Versão: 1.1
+################################################################################
+
+# ==========================================
+# TABELAS
+# ==========================================
+
+# 1. Efeito da Pandemia na Transição para
+#    o Emprego
+
+mapa_coeficientes <- c(
+  "mulher" = "Mulher",
+  "racaPreta" = "Preto",
+  "racaParda" = "Pardo",
+  "escolaridade2_Medio" = "Ensino Médio",
+  "escolaridade3_Superior" = "Ensino Superior",
+  "experiencia2_Jovem" = "Jovem (18-24 anos)",
+  "experiencia3_Jovem_Adulto" = "Jovem Adulto (25-29 anos)",
+  "periodo2_Durante_Pandemia:racaParda" = "Durante Pandemia × Pardo",
+  "periodo3_Pos_Pandemia:racaParda" = "Pós-Pandemia × Pardo",
+  "periodo2_Durante_Pandemia:racaPreta" = "Durante Pandemia × Preto",
+  "periodo3_Pos_Pandemia:racaPreta" = "Pós-Pandemia × Preto",
+  "periodo2_Durante_Pandemia:escolaridade3_Superior" = "Durante Pandemia × Ens. Superior",
+  "periodo2_Durante_Pandemia:experiencia3_Jovem_Adulto" = "Durante Pandemia × Jovem Adulto"
+)
+
+estatisticas_rodape <- list(
+  list("raw" = "nobs", "clean" = "Observações", "fmt" = 0),
+  list("raw" = "r.squared", "clean" = "R²", "fmt" = 3)
+)
+
+modelos_tabela_final <- list(
+  "(1) DiD Base (Sem Tendência)" = modelo_did_base,
+  "(2) DiD Robusto (Com Tendência)" = modelo_did_robusto
+)
+
+tabela1 <- modelsummary(
+  list("(1) DiD Base" = modelo_did_base, "(2) DiD Robusto" = modelo_did_robusto),
+  estimate = "{estimate}{stars}",
+  statistic = "({std.error})",
+  stars = c('*' = .1, '**' = .05, '***' = .01),
+  coef_map = mapa_coeficientes,
+  gof_map = estatisticas_rodape,
+  output = "flextable"
+)
+tabela1 <- tabela1 %>%
+  font(fontname = "Times New Roman", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  autofit() %>%
+  set_caption(caption = "Tabela 1 – Efeito da Pandemia na Transição para o Emprego") %>%
+  add_footer_lines("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.") %>%
+  border_remove() %>%
+  hline_top(border = fp_border_default(width = 1.5), part = "header") %>%
+  hline_bottom(border = fp_border_default(width = 1.5), part = "header") %>%
+  hline_bottom(border = fp_border_default(width = 1.5), part = "body")
+save_as_docx(tabela1, path = "graficos/Tabela1.docx")
+
+# 2. Estimação da Função de Matching
+#    Juvenil (2012-2025)
+
+tabela2 <- modelsummary(
+  list("Matching Cobb-Douglas (Jovens)" = modelo_matching),
+  estimate = "{estimate}{stars}",
+  statistic = "({std.error})",
+  output = "flextable"
+)
+tabela2 <- tabela2 %>%
+  font(fontname = "Times New Roman", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  autofit() %>%
+  set_caption(caption = "Tabela 2 – Estimação da Função de Matching Juvenil (2012-2025)") %>%
+  add_footer_lines("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua e CAGED.") %>%
+  border_remove() %>%
+  hline_top(border = fp_border_default(width = 1.5), part = "header") %>%
+  hline_bottom(border = fp_border_default(width = 1.5), part = "header") %>%
+  hline_bottom(border = fp_border_default(width = 1.5), part = "body")
+save_as_docx(tabela2, path = "graficos/Tabela2.docx")
+
+# ==========================================
+# GRÁFICOS DE ESTUDO DE EVENTOS
+# ==========================================
+
+# Padronização dos Gráficos
+tema_abnt <- theme_classic(base_size = 12, base_family = "serif") +
+  theme(
+    plot.title = element_text(face = "bold", size = 12, hjust = 0,
+                              margin = margin(b = 5)),
+    plot.subtitle = element_text(face = "italic", size = 11, color = "gray30",
+                                 margin = margin(b = 10)),
+    plot.caption = element_text(size = 10, hjust = 0, margin = margin(t = 15),
+                                lineheight = 1.1),
+    axis.title = element_text(face = "bold", size = 11),
+    axis.text = element_text(color = "black", size = 10),
+    axis.line = element_line(color = "black", linewidth = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold", size = 10),
+    legend.text = element_text(size = 10),
+    legend.background = element_rect(fill = "white", colour = "black",
+                                     linewidth = 0.4),
+    legend.key = element_blank(),
+    legend.margin = margin(t = 2, r = 6, b = 2, l = 6),
+    legend.key.size = unit(0.4, "cm"),
+    legend.spacing.x = unit(0.15, "cm"),
+    strip.text = element_text(face = "bold", size = 11),
+    strip.background = element_blank()
+  )
+
+# 1. Jovens Pardos (Modelo Base)
+png(filename = "graficos/Grafico1_EventStudy_PardosBase.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_event_study_pardo_base, 
+      main = "Gráfico 1 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Pardos e Brancos (Modelo Base)", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 2. Jovens Pardos (Modelo Robusto)
+png(filename = "graficos/Grafico2_EventStudy_PardosRobusto.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_event_study_robusto, 
+      main = "Gráfico 2 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Pardos e Brancos (Modelo Robusto)", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 3. Jovens Adultos
+png(filename = "graficos/Grafico3_EventStudy_Adultos.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_es_jovens_adultos, 
+      main = "Gráfico 3 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Adultos (25-29) e Adolescentes (14-17)", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 4. Ensino Superior
+png(filename = "graficos/Grafico4_EventStudy_Superior.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_es_superior, 
+      main = "Gráfico 4 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Ensino Superior e Ensino Fundamental", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 8. Jovens Pretos
+png(filename = "graficos/Grafico8_EventStudy_Pretos.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_es_pretos, 
+      main = "Gráfico 8 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Pretos e Brancos", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 9. Mulheres
+png(filename = "graficos/Grafico9_EventStudy_Mulheres.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_es_mulheres, 
+      main = "Gráfico 9 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Mulheres e Homens", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# 10. Jovem
+png(filename = "graficos/Grafico10_EventStudy_Jovem.png", width = 16,
+    height = 11, units = "cm", res = 600)
+par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
+    cex.lab = 0.9, cex.axis = 0.85) 
+iplot(modelo_es_jovem, 
+      main = "Gráfico 10 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
+      ylab = "Efeito na Probabilidade (p.p.)",
+      pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
+      grid = TRUE, ref.line = 0)
+mtext("Evolução do Gap entre Jovem (18-24) e Adolescentes (14-17)", side = 3, line = 0.5,
+      cex = 0.85, font = 3)
+mtext("Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua.",
+      side = 1, line = 4.5, adj = 0, cex = 0.75, font = 1)
+mtext("Nota: Os coeficientes representam a evolução da desigualdade de transição em relação ao período",
+      side = 1, line = 5.5, adj = 0, cex = 0.75, font = 1)
+mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
+      cex = 0.75, font = 1)
+dev.off()
+
+# ==========================================
+# GRÁFICOS DO MODELO DMP
+# ==========================================
+library(ggrepel)
+
+# 5. Curva de Beveridge
+dados_beveridge_clean <- dados_calibrados %>%
+  mutate(
+    Trimestre_Label = paste0(Ano, "Q", Trimestre),
+    Mostrar_Label = ifelse(
+      Trimestre_Label %in% c("2012Q1", "2015Q1", "2019Q4", "2020Q1", "2020Q2",
+                             "2021Q2", "2022Q4", "2024Q1"),
+      Trimestre_Label, 
+      ""
+    ),
+    Periodo_PT = case_when(
+      Periodo == "1_Pre-Pandemia" ~ "Pré (2012-2019)",
+      Periodo == "2_Pandemia"     ~ "Choque (2020-2021)",
+      Periodo == "3_Pos-Pandemia" ~ "Pós (2022-2025)"
+    )
+  )
+
+grafico_beveridge_definitivo <- ggplot(dados_beveridge_clean,
+                                       aes(x = u, y = v_proxy)) +
+  geom_point(aes(color = Periodo_PT, shape = Periodo_PT), size = 3.5,
+             alpha = 0.85) +
+  geom_text_repel(aes(label = Mostrar_Label), family = "serif", size = 3.2,
+                  max.overlaps = Inf) +
+  scale_color_manual(values = c("#2c3e50", "#c0392b", "#16a085")) +
+  scale_shape_manual(values = c(16, 17, 18)) +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    title = "Gráfico 5 – Curva de Beveridge do Mercado de Trabalho Juvenil",
+    subtitle = "Análise do Deslocamento da Tecnologia de Emparelhamento (2012-2025)",
+    x = "Taxa de Desemprego Juvenil (u)",
+    y = "Taxa de Vagas Recrutadas (v)",
+    color = "Período Analisado:", shape = "Período Analisado:",
+    caption = "Fonte: Elaborado pelo autor (2026) com base nos microdados da PNAD Contínua e Novo CAGED.\nNota: Rótulos indicam trimestres específicos de transição macroeconômica."
+  ) +
+  tema_abnt # Apenas isso aplica toda a mágica da ABNT!
+
+ggsave("graficos/Grafico5_Beveridge_ABNT.png",
+       plot = grafico_beveridge_definitivo, width = 16, height = 12,
+       units = "cm", dpi = 600)
+
+# 6. Desemprego sob diferentes Poderes 
+#    de Barganha
+
+dados_simulacao <- dados_calibrados %>%
+  mutate(
+    u_star_flexivel = ifelse(Periodo == "2_Pandemia", s / (s + (f * 1.3)), u_star),
+    u_star_rigido = ifelse(Periodo == "2_Pandemia", (s * 1.3) / ((s * 1.3) + (f * 0.7)), u_star)
+  )
+
+dados_plot_beta <- dados_simulacao %>%
+  select(Tempo, u_star, u_star_flexivel, u_star_rigido) %>%
+  pivot_longer(cols = starts_with("u_star"), names_to = "Modelo",
+               values_to = "Desemprego_Equilibrio") %>%
+  mutate(Modelo = case_when(
+    Modelo == "u_star" ~ "Observado (Baseline)",
+    Modelo == "u_star_flexivel" ~ "Simulado: Salário Flexível",
+    Modelo == "u_star_rigido" ~ "Simulado: Salário Rígido"
+  ))
+
+grafico_shimer <- ggplot(dados_plot_beta, aes(x = Tempo,
+                                              y = Desemprego_Equilibrio,
+                                              color = Modelo,
+                                              linetype = Modelo)) +
+  geom_line(linewidth = 1.2) +
+  geom_vline(xintercept = 2020.25, linetype = "dotted", color = "black") +
+  scale_x_continuous(breaks = seq(2012, 2024, by = 2)) +
+  scale_color_manual(values = c("black", "#2980b9", "#c0392b")) +
+  labs(
+    title = "Gráfico 6 – Desemprego de Equilíbrio (u*) sob Diferentes Regimes Salariais",
+    x = "Ano", 
+    y = "Desemprego u* (%)",
+    caption = "Fonte: Elaborado pelo autor (2026) com calibração DMP.\nNota: A linha pontilhada indica o choque de 2020Q2."
+  ) +
+  tema_abnt # Aplica a padronização
+
+ggsave("graficos/Grafico6_Shimer_ABNT.png", plot = grafico_shimer, width = 16,
+       height = 11, units = "cm", dpi = 600)
+
+
+
+# 7. Eficiência de Matching e Taxa 
+#    de Separação
+
+dados_grafico_as <- dados_calibrados %>%
+  select(Tempo, A_eff, s) %>%
+  pivot_longer(
+    cols = c(A_eff, s), 
+    names_to = "Variavel", 
+    values_to = "Valor"
+  ) %>%
+  mutate(
+    Painel = case_when(
+      Variavel == "A_eff" ~ "Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização",
+      Variavel == "s" ~ "Taxa de Separação (s) - Rotatividade"
+    ),
+    Painel = factor(Painel, levels = c(
+      "Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização",
+      "Taxa de Separação (s) - Rotatividade"
+    ))
+  )
+
+grafico_A_s <- ggplot(dados_grafico_as, aes(x = Tempo, y = Valor)) +
+  geom_line(linewidth = 1, color = "black") +
+  geom_point(size = 2, color = "black") +
+  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 2020.0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+  geom_text(
+    data = data.frame(Painel = factor(c("Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização", 
+                                        "Taxa de Separação (s) - Rotatividade"))),
+    aes(x = 2020.1, y = Inf, label = "Choque COVID-19"),
+    vjust = 1.5, hjust = 0, size = 3.5, color = "gray40", family = "serif"
+  ) +
+  labs(
+    title = "Gráfico 7 – Evolução da Eficiência de Matching (A) e da Taxa de Separação (s)",
+    x = "Ano",
+    y = "Índice / Taxa",
+    caption = "Fonte: Elaborado pelo autor (2026) com dados da PNADc e CAGED."
+  ) +
+  tema_abnt
+
+ggsave("graficos/Grafico7_Eficiencia_Separacao_ABNT.png", plot = grafico_A_s, 
+       width = 16, height = 14, units = "cm", dpi = 600)
+
+# 11. Mercado de Trabalho Juvenil
+dados_pissarides <- dados_calibrados %>%
+  select(Tempo, f, s) %>%
+  pivot_longer(
+    cols = c(f, s), 
+    names_to = "Variavel", 
+    values_to = "Taxa"
+  ) %>%
+  mutate(
+    Painel = case_when(
+      Variavel == "f" ~ "Job Finding Rate (Probabilidade de Contratação)",
+      Variavel == "s" ~ "Separation Rate (Probabilidade de Demissão)"
+    ),
+    Painel = factor(Painel, levels = c(
+      "Job Finding Rate (Probabilidade de Contratação)",
+      "Separation Rate (Probabilidade de Demissão)"
+    ))
+  )
+
+grafico_pissarides_abnt <- ggplot(dados_pissarides, aes(x = Tempo, y = Taxa)) +
+  geom_line(linewidth = 1, color = "black") +
+  geom_point(size = 2, color = "black") +
+  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 2020.25, linetype = "dashed", color = "gray40",
+             linewidth = 0.8) + 
+  scale_x_continuous(breaks = seq(2012, 2024, by = 2)) + 
+  labs(
+    title = "Gráfico 11 – Dinâmica Macroeconômica do Mercado de Trabalho Juvenil",
+    x = "Ano",
+    y = "Taxa Trimestral",
+    caption = "Fonte: Elaborado pelo autor (2026) com base nos microdados da PNADc e CAGED."
+  ) +
+  tema_abnt +
+  theme(
+    legend.position = "none", # Esconde legenda vazia
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5) 
+  )
+
+ggsave("graficos/Grafico11_Pissarides_ABNT.png", plot = grafico_pissarides_abnt,
+       width = 16, height = 14, units = "cm", dpi = 600)
+
