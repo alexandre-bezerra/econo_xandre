@@ -198,13 +198,13 @@ mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
       cex = 0.75, font = 1)
 dev.off()
 
-# 8. Jovens Pretos
-png(filename = "graficos/Grafico8_EventStudy_Pretos.png", width = 16,
+# 9. Jovens Pretos
+png(filename = "graficos/Grafico9_EventStudy_Pretos.png", width = 16,
     height = 11, units = "cm", res = 600)
 par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
     cex.lab = 0.9, cex.axis = 0.85) 
 iplot(modelo_es_pretos, 
-      main = "Gráfico 8 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      main = "Gráfico 9 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
       xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
       ylab = "Efeito na Probabilidade (p.p.)",
       pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
@@ -219,13 +219,13 @@ mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
       cex = 0.75, font = 1)
 dev.off()
 
-# 9. Mulheres
-png(filename = "graficos/Grafico9_EventStudy_Mulheres.png", width = 16,
+# 10. Mulheres
+png(filename = "graficos/Grafico10_EventStudy_Mulheres.png", width = 16,
     height = 11, units = "cm", res = 600)
 par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
     cex.lab = 0.9, cex.axis = 0.85) 
 iplot(modelo_es_mulheres, 
-      main = "Gráfico 9 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      main = "Gráfico 10 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
       xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
       ylab = "Efeito na Probabilidade (p.p.)",
       pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
@@ -240,13 +240,13 @@ mtext("pré-choque (t = -1).", side = 1, line = 6.4, adj = 0,
       cex = 0.75, font = 1)
 dev.off()
 
-# 10. Jovem
-png(filename = "graficos/Grafico10_EventStudy_Jovem.png", width = 16,
+# 11. Jovem
+png(filename = "graficos/Grafico11_EventStudy_Jovem.png", width = 16,
     height = 11, units = "cm", res = 600)
 par(family = "serif", mar = c(7.5, 4, 4, 2) + 0.1, cex.main = 0.95,
     cex.lab = 0.9, cex.axis = 0.85) 
 iplot(modelo_es_jovem, 
-      main = "Gráfico 10 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
+      main = "Gráfico 11 – Efeito Dinâmico da Pandemia na Transição para o Emprego",
       xlab = "Trimestres em relação ao início da Pandemia (0 = 2020Q2)",
       ylab = "Efeito na Probabilidade (p.p.)",
       pt.pch = 16, col = "black", ci.col = "gray40", ci.width = 0.2, 
@@ -266,7 +266,49 @@ dev.off()
 # ==========================================
 library(ggrepel)
 
-# 5. Curva de Beveridge
+# 5. Mercado de Trabalho Juvenil
+dados_pissarides <- dados_calibrados %>%
+  select(Tempo, f, s) %>%
+  pivot_longer(
+    cols = c(f, s), 
+    names_to = "Variavel", 
+    values_to = "Taxa"
+  ) %>%
+  mutate(
+    Painel = case_when(
+      Variavel == "f" ~ "Probabilidade de Contratação",
+      Variavel == "s" ~ "Probabilidade de Demissão"
+    ),
+    Painel = factor(Painel, levels = c(
+      "Probabilidade de Contratação",
+      "Probabilidade de Demissão"
+    ))
+  )
+
+grafico_pissarides_abnt <- ggplot(dados_pissarides, aes(x = Tempo, y = Taxa)) +
+  geom_line(linewidth = 1, color = "black") +
+  geom_point(size = 2, color = "black") +
+  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 2020.25, linetype = "dashed", color = "gray40",
+             linewidth = 0.8) + 
+  scale_x_continuous(breaks = seq(2012, 2024, by = 2)) + 
+  labs(
+    title = "Gráfico 5 – Taxas de Transição de Pissarides: Contratação e Separação",
+    x = "Ano",
+    y = "Taxa Trimestral",
+    caption = "Fonte: Elaborado pelo autor (2026) com base nos microdados da PNADc e CAGED."
+  ) +
+  tema_abnt +
+  theme(
+    legend.position = "none", # Esconde legenda vazia
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5) 
+  )
+
+ggsave("graficos/Grafico5_Pissarides.png", plot = grafico_pissarides_abnt,
+       width = 16, height = 14, units = "cm", dpi = 600)
+
+
+# 6. Curva de Beveridge
 dados_beveridge_clean <- dados_calibrados %>%
   mutate(
     Trimestre_Label = paste0(Ano, "Q", Trimestre),
@@ -294,8 +336,7 @@ grafico_beveridge_definitivo <- ggplot(dados_beveridge_clean,
   scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
   labs(
-    title = "Gráfico 5 – Curva de Beveridge do Mercado de Trabalho Juvenil",
-    subtitle = "Análise do Deslocamento da Tecnologia de Emparelhamento (2012-2025)",
+    title = "Gráfico 6 – Curva de Beveridge",
     x = "Taxa de Desemprego Juvenil (u)",
     y = "Taxa de Vagas Recrutadas (v)",
     color = "Período Analisado:", shape = "Período Analisado:",
@@ -303,11 +344,50 @@ grafico_beveridge_definitivo <- ggplot(dados_beveridge_clean,
   ) +
   tema_abnt # Apenas isso aplica toda a mágica da ABNT!
 
-ggsave("graficos/Grafico5_Beveridge_ABNT.png",
+ggsave("graficos/Grafico6_Beveridge.png",
        plot = grafico_beveridge_definitivo, width = 16, height = 12,
        units = "cm", dpi = 600)
 
-# 6. Desemprego sob diferentes Poderes 
+
+# 7. Eficiência de Matching
+dados_grafico_as <- dados_calibrados %>%
+  select(Tempo, A_eff) %>%
+  pivot_longer(
+    cols = c(A_eff), 
+    names_to = "Variavel", 
+    values_to = "Valor"
+  ) %>%
+  mutate(
+    Painel = case_when(
+      Variavel == "A_eff" ~ "Eficiência de Matching (A)"
+    ),
+    Painel = factor(Painel, levels = c(
+      "Eficiência de Matching (A)"
+    ))
+  )
+
+grafico_A_s <- ggplot(dados_grafico_as, aes(x = Tempo, y = Valor)) +
+  geom_line(linewidth = 1, color = "black") +
+  geom_point(size = 2, color = "black") +
+  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 2020.0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+  geom_text(
+    data = data.frame(Painel = factor(c("Eficiência de Matching (A)"))),
+    aes(x = 2020.1, y = Inf, label = "Choque COVID-19"),
+    vjust = 1.5, hjust = 0, size = 3.5, color = "gray40", family = "serif"
+  ) +
+  labs(
+    title = "Gráfico 7 – Evolução da Eficiência de Matching (A)",
+    x = "Ano",
+    y = "Índice",
+    caption = "Fonte: Elaborado pelo autor (2026) com dados da PNADc e CAGED."
+  ) +
+  tema_abnt
+
+ggsave("graficos/Grafico7_Eficiencia.png", plot = grafico_A_s, 
+       width = 16, height = 14, units = "cm", dpi = 600)
+
+# 8. Desemprego sob diferentes Poderes 
 #    de Barganha
 
 dados_simulacao <- dados_calibrados %>%
@@ -335,99 +415,12 @@ grafico_shimer <- ggplot(dados_plot_beta, aes(x = Tempo,
   scale_x_continuous(breaks = seq(2012, 2024, by = 2)) +
   scale_color_manual(values = c("black", "#2980b9", "#c0392b")) +
   labs(
-    title = "Gráfico 6 – Desemprego de Equilíbrio (u*) sob Diferentes Regimes Salariais",
+    title = "Gráfico 8 – Desemprego de Equilíbrio (u*) sob Diferentes Regimes Salariais",
     x = "Ano", 
     y = "Desemprego u* (%)",
     caption = "Fonte: Elaborado pelo autor (2026) com calibração DMP.\nNota: A linha pontilhada indica o choque de 2020Q2."
   ) +
   tema_abnt # Aplica a padronização
 
-ggsave("graficos/Grafico6_Shimer_ABNT.png", plot = grafico_shimer, width = 16,
+ggsave("graficos/Grafico8_Shimer.png", plot = grafico_shimer, width = 16,
        height = 11, units = "cm", dpi = 600)
-
-
-
-# 7. Eficiência de Matching e Taxa 
-#    de Separação
-
-dados_grafico_as <- dados_calibrados %>%
-  select(Tempo, A_eff, s) %>%
-  pivot_longer(
-    cols = c(A_eff, s), 
-    names_to = "Variavel", 
-    values_to = "Valor"
-  ) %>%
-  mutate(
-    Painel = case_when(
-      Variavel == "A_eff" ~ "Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização",
-      Variavel == "s" ~ "Taxa de Separação (s) - Rotatividade"
-    ),
-    Painel = factor(Painel, levels = c(
-      "Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização",
-      "Taxa de Separação (s) - Rotatividade"
-    ))
-  )
-
-grafico_A_s <- ggplot(dados_grafico_as, aes(x = Tempo, y = Valor)) +
-  geom_line(linewidth = 1, color = "black") +
-  geom_point(size = 2, color = "black") +
-  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
-  geom_vline(xintercept = 2020.0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
-  geom_text(
-    data = data.frame(Painel = factor(c("Eficiência de Matching (A) - Efeito Novo CAGED/Digitalização", 
-                                        "Taxa de Separação (s) - Rotatividade"))),
-    aes(x = 2020.1, y = Inf, label = "Choque COVID-19"),
-    vjust = 1.5, hjust = 0, size = 3.5, color = "gray40", family = "serif"
-  ) +
-  labs(
-    title = "Gráfico 7 – Evolução da Eficiência de Matching (A) e da Taxa de Separação (s)",
-    x = "Ano",
-    y = "Índice / Taxa",
-    caption = "Fonte: Elaborado pelo autor (2026) com dados da PNADc e CAGED."
-  ) +
-  tema_abnt
-
-ggsave("graficos/Grafico7_Eficiencia_Separacao_ABNT.png", plot = grafico_A_s, 
-       width = 16, height = 14, units = "cm", dpi = 600)
-
-# 11. Mercado de Trabalho Juvenil
-dados_pissarides <- dados_calibrados %>%
-  select(Tempo, f, s) %>%
-  pivot_longer(
-    cols = c(f, s), 
-    names_to = "Variavel", 
-    values_to = "Taxa"
-  ) %>%
-  mutate(
-    Painel = case_when(
-      Variavel == "f" ~ "Job Finding Rate (Probabilidade de Contratação)",
-      Variavel == "s" ~ "Separation Rate (Probabilidade de Demissão)"
-    ),
-    Painel = factor(Painel, levels = c(
-      "Job Finding Rate (Probabilidade de Contratação)",
-      "Separation Rate (Probabilidade de Demissão)"
-    ))
-  )
-
-grafico_pissarides_abnt <- ggplot(dados_pissarides, aes(x = Tempo, y = Taxa)) +
-  geom_line(linewidth = 1, color = "black") +
-  geom_point(size = 2, color = "black") +
-  facet_wrap(~ Painel, ncol = 1, scales = "free_y") +
-  geom_vline(xintercept = 2020.25, linetype = "dashed", color = "gray40",
-             linewidth = 0.8) + 
-  scale_x_continuous(breaks = seq(2012, 2024, by = 2)) + 
-  labs(
-    title = "Gráfico 11 – Dinâmica Macroeconômica do Mercado de Trabalho Juvenil",
-    x = "Ano",
-    y = "Taxa Trimestral",
-    caption = "Fonte: Elaborado pelo autor (2026) com base nos microdados da PNADc e CAGED."
-  ) +
-  tema_abnt +
-  theme(
-    legend.position = "none", # Esconde legenda vazia
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5) 
-  )
-
-ggsave("graficos/Grafico11_Pissarides_ABNT.png", plot = grafico_pissarides_abnt,
-       width = 16, height = 14, units = "cm", dpi = 600)
-
