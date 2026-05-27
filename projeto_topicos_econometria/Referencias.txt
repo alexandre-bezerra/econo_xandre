@@ -1,0 +1,10 @@
+- TARIFA ZERO
+@data{DVN/Z927PD_2024,
+author = {Santini, Daniel},
+publisher = {Harvard Dataverse},
+title = {{Brazilian municipalities with full Fare-Free Public Transport policies - updated September 2025}},
+year = {2024},
+version = {V6},
+doi = {10.7910/DVN/Z927PD},
+url = {https://doi.org/10.7910/DVN/Z927PD}
+}
