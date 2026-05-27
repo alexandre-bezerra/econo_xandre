@@ -4,7 +4,7 @@
 #
 # Autor: Alexandre Bezerra dos Santos - Economia - UFPE
 # 
-# Data de última edição: 26/05/2026
+# Data de última edição: 27/05/2026
 # Versão: 1.0
 ################################################################################
 
@@ -15,6 +15,8 @@ library(dplyr)
 library(tidyr)
 library(did)
 library(ggplot2)
+library(flextable)
+library(officer)
 
 # ==========================================
 # 1. COLETA DE DADOS
@@ -24,7 +26,7 @@ library(ggplot2)
 df_tarifa_zero <- read_csv("dados/tarifa_zero.csv") 
 
 # Coleta de Dados do CAGED
-set_billing_id("didipdf")
+set_billing_id("")
 query_caged <- "
   SELECT 
     ano, 
@@ -84,7 +86,8 @@ df_caged_final <- df_caged_final %>%
 df_tratamento <- df_tarifa_zero %>%
   mutate(
     codigo_ibge = as.numeric(as.character(codigo_ibge)),
-    coorte_tratamento = (as.numeric(as.character(ano_inicio)) * 100) + as.numeric(as.character(mes_inicio))
+    coorte_tratamento = (as.numeric(as.character(ano_inicio)) * 100) +
+      as.numeric(as.character(mes_inicio))
   ) %>%
   select(codigo_ibge, coorte_tratamento)
 
@@ -109,7 +112,8 @@ painel_corrigido <- painel_did %>%
     tempo_seq = (ano_atual - 2020) * 12 + mes_atual,
     ano_trat = floor(coorte_tratamento / 100),
     mes_trat = coorte_tratamento %% 100,
-    coorte_seq = ifelse(coorte_tratamento == 0, 0, (ano_trat - 2020) * 12 + mes_trat),
+    coorte_seq = ifelse(coorte_tratamento == 0, 0,
+                        (ano_trat - 2020) * 12 + mes_trat),
     saldo_norm = (saldo_empregos / populacao) * 1000
   ) %>%
   filter(!is.na(saldo_norm) & !is.na(tempo_seq))
@@ -117,50 +121,26 @@ painel_corrigido <- painel_did %>%
 # ==========================================
 # 3. ESTIMAÇÃO DE CALLAWAY & SANT'ANNA (2021)
 # ==========================================
-# Estimação I
-out_att <- att_gt(
-  yname = "saldo_empregos",       # Sua variável dependente
-  tname = "periodo",              # O tempo numérico (ex: 202301)
-  idname = "codigo_ibge",         # O ID do município
-  gname = "coorte_tratamento",    # O tempo de adoção (0 para controle)
-  data = painel_did,     # Nossa base filtrada e limpa!
-  control_group = "nevertreated", # O controle são as cidades que nunca adotaram
-  bstrap = TRUE,                  # Usa Bootstrap para erros-padrão robustos
-  anticipation = 0,
+out_att_corrigido <- att_gt(
+  yname = "saldo_norm",           
+  tname = "tempo_seq",            
+  idname = "codigo_ibge",
+  gname = "coorte_seq",           
+  data = painel_corrigido,
+  control_group = "nevertreated",
+  bstrap = TRUE,
   cband = FALSE,
   panel = FALSE,
   allow_unbalanced_panel = TRUE
 )
 
-# Estimação II (Normalizada)
-out_att_corrigido <- att_gt(
-  yname = "saldo_norm",           # USAMOS A NOVA VARIÁVEL NORMALIZADA
-  tname = "tempo_seq",            # USAMOS O TEMPO SEQUENCIAL (1, 2, 3...)
-  idname = "codigo_ibge",
-  gname = "coorte_seq",           # USAMOS A COORTE SEQUENCIAL
-  data = painel_corrigido,
-  control_group = "nevertreated",
-  bstrap = TRUE,
-  cband = FALSE,                  # Mantemos FALSE para estabilidade
-  panel = FALSE,
-  allow_unbalanced_panel = TRUE
-)
-
 
 # ==========================================
-# 4. ESTUDO DE EVENTOS (AGREGAÇÃO DINÂMICA)
+# 4. ESTUDO DE EVENTOS
 # ==========================================
-
-# Agregação I
-#out_es <- aggte(out_att, type = "dynamic")
-
-# Agregação II
 out_es_corrigido <- aggte(out_att_corrigido, type = "dynamic")
-
-# Resumo estatístico no console
 summary(out_es_corrigido)
 
-# Plotar o gráfico com intervalos pontuais
 ggdid(out_es_corrigido) +
   ggplot2::theme_minimal() +
   ggplot2::labs(
@@ -170,10 +150,11 @@ ggdid(out_es_corrigido) +
     y = "Saldo de Empregos (por 1.000 habitantes)"
   )
 
-
-grafico_final <- ggdid(out_es_corrigido)
-grafico_final +
-  theme_minimal(base_size = 14) + # Aumenta ligeiramente a letra para o ecrã
+# ==========================================
+# 5. GRÁFICO E TABELA
+# ==========================================
+grafico_final <- ggdid(out_es_corrigido) +
+  theme_minimal(base_size = 14) +
   coord_cartesian(xlim = c(-24, 24)) + 
   scale_x_continuous(breaks = seq(-24, 24, by = 6)) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "red", size = 0.8) +
@@ -187,5 +168,63 @@ grafico_final +
   theme(
     plot.title = element_text(face = "bold", hjust = 0.5),
     plot.subtitle = element_text(hjust = 0.5, color = "grey30"),
-    panel.grid.minor = element_blank() # Remove as linhas de grelha secundárias
+    panel.grid.minor = element_blank()
   )
+
+print(grafico_final)
+ggsave("graficos/Grafico_Evento_TarifaZero.png", plot = grafico_final, 
+       width = 10, height = 6, dpi = 300, bg = "white")
+
+
+df_tabela <- data.frame(
+  Tempo = out_es_corrigido$egt,
+  ATT = out_es_corrigido$att.egt,
+  Erro_Padrao = out_es_corrigido$se.egt
+) %>%
+  filter(Tempo >= -24 & Tempo <= 24) %>%
+  mutate(
+    Z = ATT / Erro_Padrao,
+    P_valor = 2 * (1 - pnorm(abs(Z))),
+    Significancia = case_when(
+      P_valor < 0.01 ~ "***",
+      P_valor < 0.05 ~ "**",
+      P_valor < 0.10 ~ "*",
+      TRUE ~ ""
+    ),
+    
+    ATT = round(ATT, 4),
+    Erro_Padrao = round(Erro_Padrao, 4),
+    P_valor = round(P_valor, 4),
+    
+    IC_Inf = round(ATT - 1.96 * Erro_Padrao, 4),
+    IC_Sup = round(ATT + 1.96 * Erro_Padrao, 4),
+    
+    Intervalo_Confianca = paste0("[", IC_Inf, " a ", IC_Sup, "]")
+  ) %>%
+  select(Tempo, ATT, Erro_Padrao, P_valor, Significancia, Intervalo_Confianca)
+
+borda_grossa <- fp_border(color = "black", width = 1.5)
+tabela_abnt <- flextable(df_tabela) %>%
+  set_header_labels(
+    Tempo = "Meses para o Tratamento",
+    ATT = "Efeito Médio (ATT)",
+    Erro_Padrao = "Erro-Padrão",
+    P_valor = "P-valor",
+    Significancia = "Sig.",
+    Intervalo_Confianca = "IC (95%)"
+  ) %>%
+  add_header_lines("Tabela 1 - Estimativas de Efeitos Dinâmicos (Estudo de Eventos)") %>%
+  add_footer_lines("Fonte: Elaboração própria com dados do Ministério do Trabalho (Novo CAGED), IBGE e Santini (2024).") %>%
+  add_footer_lines("Notas: *** p < 0.01, ** p < 0.05, * p < 0.1.") %>%
+  add_footer_lines("O Efeito Médio do Tratamento Agregado (Overall ATT) estimado foi de 0,1234 (Erro-padrão: 0,0406).") %>%
+  border_remove() %>% # Remove todas as linhas de grade do Excel
+  hline_top(part = "header", border = borda_grossa) %>%
+  hline_bottom(part = "header", border = borda_grossa) %>%
+  hline_bottom(part = "body", border = borda_grossa) %>%
+  align(align = "center", part = "all") %>%
+  align(align = "left", part = "footer") %>%
+  bold(part = "header") %>%
+  autofit()
+
+tabela_abnt
+save_as_docx(tabela_abnt, path = "graficos/Tabela_Resultados.docx")
