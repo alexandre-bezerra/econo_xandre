@@ -130,7 +130,7 @@ saveRDS(base_dmp_macro, "data/base_macro_dmp.rds")
 saveRDS(base_tcc_jovens, "data/base_tcc_jovens_bruta.rds")
 
 # Coleta de Dados do CAGED
-set_billing_id("didipdf")
+set_billing_id("")
 query_caged_jovens <- "
 WITH caged_completo AS (
   -- Dados do CAGED Antigo (Até 2019)

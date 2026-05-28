@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.26 (MiKTeX 24.4) (preloaded format=pdflatex 2024.12.21)  27 MAY 2026 17:31
+This is pdfTeX, Version 3.141592653-2.6-1.40.26 (MiKTeX 24.4) (preloaded format=pdflatex 2024.12.21)  27 MAY 2026 17:49
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -551,10 +551,6 @@ Overfull \hbox (24.03763pt too wide) in alignment at lines 406--458
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-04-11>
  ***********
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `"Artigo - Alexandre Bezerra".out' has not ch
 anged.
 (rerunfilecheck)             Checksum: 41F7D6C36DCDE1101194B0BC78C80CBE;2522.
@@ -590,7 +586,7 @@ blic/amsfonts/cm/cmmi12.pfb><C:/Users/alexa/AppData/Local/Programs/MiKTeX/fonts
 eX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/alexa/AppData/Local/Progr
 ams/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/alexa/AppData/Lo
 cal/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on "Artigo - Alexandre Bezerra.pdf" (16 pages, 498375 bytes).
+Output written on "Artigo - Alexandre Bezerra.pdf" (16 pages, 498312 bytes).
 PDF statistics:
  954 PDF objects out of 1000 (max. 8388607)
  69 named destinations out of 1000 (max. 500000)
